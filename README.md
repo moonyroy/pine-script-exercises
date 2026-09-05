@@ -18,6 +18,12 @@ An improved version of the Pin Bar strategy with body-based volatility, Engulfin
 
 [View Exercise](./02-pin-bar-strategy-developed/)
 
+### 03 — Pin Bar Strategy (Optimised)
+
+A refactored version of the Pin Bar strategy rebuilt with user-defined types, featuring cleaner logic, multiple Pin Bar profiles, and selectable trade-state modes.
+
+[View Exercise](./03-pin-bar-strategy-optimised/)
+
 ---
 
 More exercises will be added as I continue learning Pine Script.

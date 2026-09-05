@@ -1,0 +1,148 @@
+//@version=6
+strategy("j 8" , "" , true , margin_long = 0 , margin_short = 0 , currency = currency.USD ,
+ initial_capital = 1000 , default_qty_type = strategy.cash , default_qty_value = 10000)
+
+// I've made some classes to save candle features and market features
+type candle
+    float body
+    float upper
+    float lower
+    float bodyRatio
+    float upperRatio
+    float lowerRatio
+
+type marketInfo
+    float atr
+    float ema
+    float upperBound
+    float lowerBound
+    bool bullish
+    bool bearish
+
+// I've made a function to determine pinbars
+pinbarDitector(candle c, int direction)=>
+
+    if c.bodyRatio < 0.5
+        false
+    else
+        if direction == 1
+
+            if c.bodyRatio <= 1
+                c.lowerRatio > 2 and c.upperRatio < 1
+            else if c.bodyRatio < 2
+                c.lowerRatio > 1.5 and c.upperRatio < 2/3
+            else
+                c.lowerRatio > 1 and c.upperRatio < 1/2
+
+        else
+
+            if c.bodyRatio <= 1
+                c.upperRatio > 2 and c.lowerRatio < 1
+            else if c.bodyRatio < 2
+                c.upperRatio > 1.5 and c.lowerRatio < 2/3
+            else
+                c.upperRatio > 1 and c.lowerRatio < 1/2
+
+bdy    = math.abs(close-open) , atr = ta.sma(bdy , input(100)) * 0.8 , rr = input(3)
+up_shd = high - math.max(close , open) , dn_shd = math.min(close , open) - low
+
+candle = candle.new(bdy, up_shd, dn_shd, bdy / atr, up_shd / bdy, dn_shd / bdy)
+
+ema = ta.ema(input(close) , input(21)) // just to summerise
+upb = ema + atr
+dnb = ema - atr
+
+var bool bullish = false
+var bool bearish = false
+
+bullish := bullish ? high >= ema : low > (ema + 2 * atr)
+bearish := bearish ? low <= ema : high < (ema - 2 * atr)
+
+market = marketInfo.new(atr, ema, upb, dnb, bullish, bearish)
+
+typ = input.string("credit by old signal" , "trade type" , ["credit by new signal" , "credit by new reversal signal" , "credit by old signal"])
+
+
+longArea  = low  <= market.upperBound and low  >= market.lowerBound
+shortArea = high <= market.upperBound and high >= market.lowerBound
+
+bool lng_pb = false
+bool sht_pb = false
+
+if longArea and market.bullish
+    lng_pb := pinbarDitector(candle, 1)
+
+if shortArea and market.bearish
+    sht_pb := pinbarDitector(candle, -1)
+
+
+upper = plot(market.upperBound , "upper Bound" , color.new(color.gray , 85))
+lower = plot(market.lowerBound , "lower Bound" , color.new(color.gray , 85))
+fill(upper , lower , color.new(color.gray , 95) , "EMA range")
+
+
+var float sl = na, var float tp = na, var float en = na, var int stn = 0
+
+
+plot(en , "Entry" , color.yellow , 1 , plot.style_linebr)
+plot(sl , "SL"    , color.orange , 1 , plot.style_linebr)
+plot(tp , "TP"    , color.aqua   , 1 , plot.style_linebr)
+
+
+if stn == 1
+    if high >= tp or low <= sl
+        stn := 0 , sl := na , tp := na , en := na
+
+
+if stn == -1
+    if low <= tp or high >= sl
+        stn := 0 , sl := na , tp := na , en := na
+
+
+if typ == "credit by old signal"
+
+    if stn == 0
+
+        if market.bullish and lng_pb and longArea
+            stn := 1 , en := close , sl := en - 3 * market.atr , tp := en + rr * (en-sl)
+            strategy.entry("lng" , strategy.long)
+            strategy.exit("lng" , "lng" , limit = tp , stop = sl)
+
+        if market.bearish and sht_pb and shortArea
+            stn := -1 , en := close , sl := en + 3 * market.atr , tp := en - rr * (sl-en)
+            strategy.entry("sht" , strategy.short)
+            strategy.exit("sht" , "sht" , limit = tp , stop = sl)
+
+
+else if typ == "credit by new signal"
+
+    if market.bullish and lng_pb and longArea // just added longArea/shortArea
+        strategy.close("lng" , "close") , strategy.close("sht" , "close")
+        stn := 1 , en := close , sl := en - 3 * market.atr , tp := en + rr * (en-sl)
+        strategy.entry("lng" , strategy.long)
+        strategy.exit("lng" , "lng" , limit = tp , stop = sl)
+
+
+    if market.bearish and sht_pb and shortArea
+        strategy.close("lng" , "close") , strategy.close("sht" , "close")
+        stn := -1 , en := close , sl := en + 3 * market.atr , tp := en - rr * (sl-en)
+        strategy.entry("sht" , strategy.short)
+        strategy.exit("sht" , "sht" , limit = tp , stop = sl)
+
+
+else
+
+    if market.bullish and lng_pb and longArea
+
+        if stn != 1
+            stn := 1 , en := close , sl := en - 3 * market.atr , tp := en + rr * (en-sl)
+            strategy.entry("lng" , strategy.long)
+            strategy.exit("lng" , "lng" , limit = tp , stop = sl)
+
+
+    if market.bearish and sht_pb and shortArea
+
+        if stn != -1
+            stn := -1 , en := close , sl := en + 3 * market.atr , tp := en - rr * (sl-en)
+            strategy.entry("sht" , strategy.short)
+            strategy.exit("sht" , "sht" , limit = tp , stop = sl)
