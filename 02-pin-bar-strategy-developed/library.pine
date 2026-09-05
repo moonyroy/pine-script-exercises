@@ -1,0 +1,40 @@
+//@version=6
+
+library("TradeModeLibrary")
+
+
+// Mode 1
+export mode1(bool tradeActive) =>
+    bool closePosition = false
+    bool enterPosition = false
+
+    if not tradeActive
+        enterPosition := true
+
+    [closePosition, enterPosition]
+
+
+// Mode 2
+export mode2(bool tradeActive) =>
+    bool closePosition = false
+    bool enterPosition = true
+
+    if tradeActive
+        closePosition := true
+
+    [closePosition, enterPosition]
+
+
+// Mode 3
+export mode3(bool tradeActive, int tradeDirection, int signalDirection) =>
+    bool closePosition = false
+    bool enterPosition = false
+
+    if not tradeActive
+        enterPosition := true
+
+    else if tradeDirection != signalDirection
+        closePosition := true
+        enterPosition := true
+
+    [closePosition, enterPosition]

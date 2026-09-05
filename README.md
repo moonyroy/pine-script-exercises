@@ -12,6 +12,12 @@ A trading strategy exercise focused on Pin Bar detection, EMA, ATR, trend condit
 
 [View Exercise](./01-pin-bar-strategy/)
 
+### 02 — Pin Bar Strategy (Developed)
+
+An improved version of the Pin Bar strategy with body-based volatility, Engulfing confirmation, multiple Pin Bar profiles, and selectable trade-state modes.
+
+[View Exercise](./02-pin-bar-strategy-developed/)
+
 ---
 
 More exercises will be added as I continue learning Pine Script.

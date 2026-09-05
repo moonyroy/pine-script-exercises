@@ -1,0 +1,224 @@
+//@version = 6   
+   
+import atomsmercury0h/statesOfTrading/1 as state  
+  
+strategy("idk", overlay = true, initial_capital = 10000, margin_long = 0, margin_short = 0, process_orders_on_close = true, max_lines_count = 500)   
+   
+   
+atrLength = input.int(100, "ATR length")   
+emaLength = input.int(21 , "EMA length", inline = "1")   
+emaSource = input.source(close, "EMA source", inline = "1")   
+RR = input.int(1, "RR", options = [1, 2, 3])   
+   
+states = input.string("state 1", "choose your state", options = ["state 1", "state 2", "state 3"])  
+   
+   
+var float sl = na   
+var float tp = na   
+ 
+var line slLine = na  
+var line tpLine = na 
+ 
+var bool active = false  
+var int tradeDirection = 0  
+var int startBar       = na  
+  
+   
+body = math.abs(close - open)   
+   
+ATR = ta.sma(body , atrLength) * 0.8   
+EMA = ta.ema(emaSource, emaLength)   
+   
+upperShadow = high - math.max(close, open)   
+lowerShadow = math.min(close, open) - low   
+   
+bool pinBarLong    = false   
+bool pinBarShort   = false   
+
+bool engulfLong    = false
+bool engulfShort   = false
+
+var bool upTrend   = false   
+var bool downTrend = false   
+   
+float upperBound = na   
+float lowerBound = na   
+   
+//--------------------------------------------   
+   
+pinbarDitector(bodyLowerBound, bodyUpperBound, lowerShadowBound, upperShadowBound, direction) =>   
+    if (body >= ATR * bodyLowerBound) and (body <= ATR * bodyUpperBound)   
+        if direction == "long"   
+            lowerShadow > lowerShadowBound * body and upperShadow < upperShadowBound * body   
+               
+        else if direction == "short"   
+            lowerShadow < lowerShadowBound * body and upperShadow > upperShadowBound * body    
+    else    
+        false   
+
+
+//---------------------------------------------- 
+//signals conditions and finding signal directon 
+ 
+pinBarLong  := pinbarDitector(1/2, 1, 2, 1, "long" ) or pinbarDitector(1, 2, 1.5, 2/3, "long" ) or pinbarDitector(2, 100, 1  , 0.5, "long" )   
+pinBarShort := pinbarDitector(1/2, 1, 1, 2, "short") or pinbarDitector(1, 2, 2/3, 1.5, "short") or pinbarDitector(2, 100, 0.5, 1  , "short")   
+
+
+//----------------------------------------------
+//engulf conditions
+
+engulfLong  := close > open and open <= math.min(open[1], close[1]) and close >= math.max(open[1], close[1])
+engulfShort := close < open and open >= math.max(open[1], close[1]) and close <= math.min(open[1], close[1])
+
+
+//----------------------------------------------
+
+if low > EMA + (ATR * 2)   
+    downTrend := false   
+    upTrend   := true  
+  
+if upTrend 
+    if high < EMA    
+        upTrend := false   
+ 
+ 
+if high < EMA - (ATR * 2)   
+    upTrend   := false   
+    downTrend := true  
+  
+if downTrend   
+    if low > EMA   
+        downTrend := false   
+ 
+ 
+longSignal  = upTrend   and pinBarLong [1] and engulfLong  and math.abs(low [1] - EMA[1]) <= ATR[1] 
+shortSignal = downTrend and pinBarShort[1] and engulfShort and math.abs(high[1] - EMA[1]) <= ATR[1] 
+ 
+ 
+int signalDirection = 0 
+ 
+if longSignal 
+    signalDirection := 1 
+ 
+if shortSignal 
+    signalDirection := -1 
+ 
+//--------------------------------------------------------------- 
+ 
+bool exitPosition  = false 
+bool enterPosition = false 
+ 
+ 
+if signalDirection != 0 
+ 
+    if states == "state 1" 
+        [exit, enter] = state.state_1(active) 
+        exitPosition    := exit 
+        enterPosition   := enter 
+ 
+ 
+    else if states == "state 2" 
+        [exit, enter] = state.state_2(active) 
+        exitPosition    := exit 
+        enterPosition   := enter 
+ 
+ 
+    else if states == "state 3" 
+        [exit, enter] = state.state_3(active, tradeDirection, signalDirection) 
+        exitPosition     := exit 
+        enterPosition    := enter 
+
+
+// -------------------- 
+//closing open position if it's needed 
+ 
+if exitPosition and active 
+ 
+    if tradeDirection == 1 
+        strategy.close("long") 
+ 
+    else if tradeDirection == -1 
+        strategy.close("short") 
+ 
+ 
+    line.set_x2(slLine, bar_index) 
+    line.set_x2(tpLine, bar_index) 
+ 
+    active         := false 
+    tradeDirection := 0 
+    startBar       := na 
+ 
+    sl := na 
+    tp := na 
+ 
+
+//long position 
+ 
+if enterPosition and signalDirection == 1 
+ 
+    strategy.entry("long", strategy.long) 
+ 
+    sl := close - (3 * ATR) 
+    tp := close + (3 * ATR * RR) 
+ 
+    strategy.exit("exit long", "long", stop = sl, limit = tp) 
+ 
+    active         := true 
+    tradeDirection := 1 
+    startBar       := bar_index 
+ 
+    slLine := line.new(bar_index, sl, bar_index, sl, color = color.red, width = 2) 
+    tpLine := line.new(bar_index, tp, bar_index, tp, color = color.green, width = 2) 
+ 
+ 
+//short postion 
+ 
+if enterPosition and signalDirection == -1 
+ 
+    strategy.entry("short", strategy.short) 
+ 
+    sl := close + (3 * ATR) 
+    tp := close - (3 * ATR * RR) 
+ 
+    strategy.exit("exit short", "short", stop = sl, limit = tp) 
+ 
+    active         := true 
+    tradeDirection := -1 
+    startBar       := bar_index 
+ 
+    slLine := line.new(bar_index, sl, bar_index, sl, color = color.red  , width = 2) 
+    tpLine := line.new(bar_index, tp, bar_index, tp, color = color.green, width = 2) 
+ 
+ 
+// line details + tradeDirection update-------------------------------- 
+ 
+if active 
+    upperBound := EMA + ATR 
+    lowerBound := EMA - ATR 
+ 
+    line.set_x2(slLine, bar_index) 
+    line.set_x2(tpLine, bar_index) 
+ 
+if active and tradeDirection == 1 and bar_index > startBar 
+    if low <= sl or high >= tp 
+ 
+        active         := false 
+        tradeDirection := 0 
+        startBar       := na 
+ 
+        sl := na 
+        tp := na 
+ 
+if active and tradeDirection == -1 and bar_index > startBar 
+    if high >= sl or low <= tp 
+ 
+        active         := false 
+        tradeDirection := 0 
+        startBar       := na 
+ 
+        sl := na 
+        tp := na 
+ 
+upperPlot = plot(upperBound, "Upper Band", style = plot.style_linebr, color = color.rgb(255, 242, 0))   
+lowerPlot = plot(lowerBound, "Lower Band", style = plot.style_linebr, color = color.rgb(255, 242, 0))   
+fill(upperPlot, lowerPlot, color = color.rgb(255, 242, 0, 75))
