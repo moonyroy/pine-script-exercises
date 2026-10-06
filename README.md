@@ -42,6 +42,12 @@ A strategy that enters on Pin Bar reactions to Order Blocks formed at the end of
 
 [View Exercise](./06-order-block-reaction-strategy/)
 
+### 07 — Directional Fibonacci Strategy
+
+A strategy trading Pin Bar and Engulfing reactions at directional Fibonacci levels built from the previous day's range, with dynamic nearest-level Take Profit and second-nearest Stop Loss.
+
+[View Exercise](./07-directional-fibonacci-strategy/)
+
 ---
 
 More exercises will be added as I continue learning Pine Script.

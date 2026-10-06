@@ -1,0 +1,93 @@
+//@version = 6
+strategy("fibow🌈" , "" , true , initial_capital = 1000 , default_qty_type = strategy.cash , default_qty_value = 10000 , margin_long = 0 , margin_short = 0 , currency = currency.USD, process_orders_on_close = true)
+
+var float dly_hi  = na
+var float dly_lo  = na
+var float dly_opn = na
+var float dly_cls = na
+
+var float mvm = na
+
+var float hiest   = na
+var float loest = na
+var int   hiest_bi = na
+var int   loest_bi = na
+
+var bool  leg_up = false
+
+fbo(pct) => leg_up ? dly_hi - pct*mvm : dly_lo + pct*mvm
+
+new_day = timeframe.change("D") or na(hiest)
+
+if new_day
+    if not na(hiest)
+        dly_hi := hiest , dly_lo := loest
+        mvm := dly_hi - dly_lo
+        dly_cls := close[1]
+
+        leg_up := (loest_bi < hiest_bi or loest_bi == hiest_bi and dly_cls > dly_opn) ? true : (hiest_bi < loest_bi or loest_bi == hiest_bi and dly_cls < dly_opn) ? false : leg_up
+    hiest    := high      , loest := low
+    hiest_bi := bar_index , loest_bi := bar_index
+    dly_opn := open
+else
+    if high > hiest
+        hiest := high , hiest_bi := bar_index
+    if low < loest
+        loest := low , loest_bi := bar_index
+
+
+bdy = math.abs(close-open) , bdy_avg = ta.sma(bdy,1440) , grn = close > open , red = close < open
+var float en = na , var float sl = na , var float tp = na
+
+lng_pb = (bdy > (bdy_avg/2)) and (math.min(open,close)-low)  > 1.5*bdy and (high-math.max(open,close))<bdy
+sht_pb = (bdy > (bdy_avg/2)) and (high-math.max(open,close)) > 1.5*bdy and (math.min(open,close)-low) <bdy
+
+lng_eng = bdy > 1.5*bdy_avg and close > high[1] and red[1]
+sht_eng = bdy > 1.5*bdy_avg and close < low [1] and grn[1]
+
+var stn = "" , dbg = (high-low) < (mvm/6)
+
+lng_cnd(fbo) => (math.max(low[2] ,low [1]) > fbo(fbo) and close > fbo(fbo)) and ((lng_pb and low  < fbo(fbo)) or (lng_eng and math.min(low ,low [1]) < fbo(fbo)))
+sht_cnd(fbo) => (math.min(high[2],high[1]) < fbo(fbo) and close < fbo(fbo)) and ((sht_pb and high > fbo(fbo)) or (sht_eng and math.max(high,high[1]) > fbo(fbo)))
+
+
+big = math.pow(10 , 9)
+lv_up(p , ex) => fbo(p) > close and fbo(p) != ex ? fbo(p) :  big
+lv_dn(p , ex) => fbo(p) < close and fbo(p) != ex ? fbo(p) : -big
+up1 = math.min(lv_up(0.23 , -big) , lv_up(0.34 , -big) , lv_up(0.50 , -big) , lv_up(0.61 , -big) , lv_up(0.78 , -big))
+dn1 = math.max(lv_dn(0.23 ,  big) , lv_dn(0.34 ,  big) , lv_dn(0.50 ,  big) , lv_dn(0.61 ,  big) , lv_dn(0.78 ,  big))
+up2 = math.min(lv_up(0.23 , up1) , lv_up(0.34 , up1) , lv_up(0.50 , up1) , lv_up(0.61 , up1) , lv_up(0.78 , up1))
+dn2 = math.max(lv_dn(0.23 , dn1) , lv_dn(0.34 , dn1) , lv_dn(0.50 , dn1) , lv_dn(0.61 , dn1) , lv_dn(0.78 , dn1))
+
+tp(dir) => dir == "lng" ? (up1 ==  big ? dly_hi : up1) : (dn1 == -big ? dly_lo : dn1)
+sl(dir) => dir == "lng" ? (dn2 == -big ? dly_lo : dn2) : (up2 ==  big ? dly_hi : up2)
+
+if stn == "lng"
+    if high >= tp or low <= sl
+        stn := "" , sl := na , en := na , tp := na
+if stn == "sht"
+    if high >= sl or low <= tp
+        stn := "" , sl := na , en := na , tp := na
+
+if stn == "" and dbg
+    if lng_cnd(0.23) or lng_cnd(0.34) or lng_cnd(0.50) or lng_cnd(0.61) or lng_cnd(0.78)
+        stn := "lng" , en := close , sl := sl("lng") , tp := tp("lng")
+        strategy.entry("buy" , strategy.long)
+        strategy.exit("buy" , "buy" , stop = sl , limit = tp)
+    if sht_cnd(0.23) or sht_cnd(0.34) or sht_cnd(0.50) or sht_cnd(0.61) or sht_cnd(0.78)
+        stn := "sht" , en := close , sl := sl("sht") , tp := tp("sht")
+        strategy.entry("sell" , strategy.short)
+        strategy.exit("sell" , "sell" , stop = sl , limit = tp)
+
+plot(en , "entry"  , color.yellow , 2 , plot.style_steplinebr)
+plot(sl , "stop"   , color.red    , 2 , plot.style_steplinebr)
+plot(tp , "profit" , color.green  , 2 , plot.style_steplinebr)
+
+plot(dly_hi , color = color.rgb(255, 255, 255, 90))
+plot(dly_lo , color = color.rgb(255, 255, 255, 90))
+
+plot(fbo(0.23) , color = #ffffff33)
+plot(fbo(0.34) , color = color.rgb(255, 255, 255, 80))
+plot(fbo(0.50) , color = #ffffff33)
+plot(fbo(0.61) , color = #ffffff33)
+plot(fbo(0.78) , color = #ffffff33)
