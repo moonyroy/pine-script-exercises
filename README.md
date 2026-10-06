@@ -24,6 +24,12 @@ A refactored version of the Pin Bar strategy rebuilt with user-defined types, fe
 
 [View Exercise](./03-pin-bar-strategy-optimised/)
 
+### 04 — Fibonacci SR Strategy
+
+A 1-minute timeframe strategy trading Pin Bar and Engulfing reactions at Fibonacci support/resistance levels derived from the previous day's range, with SL/TP set to the nearest Fibonacci levels.
+
+[View Exercise](./04-fibonacci-sr-strategy/)
+
 ---
 
 More exercises will be added as I continue learning Pine Script.

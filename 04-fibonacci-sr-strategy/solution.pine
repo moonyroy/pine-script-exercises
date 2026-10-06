@@ -1,0 +1,89 @@
+//@version=6
+
+strategy("meow", overlay = true)
+
+preHigh = ta.highest(high[1], 1440)
+preLow = ta.lowest(low[1], 1440)
+
+fiboRange = preHigh - preLow
+
+fibo_1 = preLow + fiboRange * 0.234
+fibo_2 = preLow + fiboRange * 0.38
+fibo_3 = preLow + fiboRange * 0.50
+fibo_4 = preLow + fiboRange * 0.618
+fibo_5 = preLow + fiboRange * 0.78
+
+body = math.abs(close - open)
+shadow = high - low
+upperShadow = high - math.max(open, close)
+lowerShadow = math.max(open, close) - low
+
+bullPin = lowerShadow > body * 2 and upperShadow < body
+bearPin = upperShadow > body * 2 and lowerShadow < body
+
+bullEngulf = close > open and close[1] < open[1] and close > open[1] and open < close[1]
+bearEngulf = close < open and close[1] > open[1] and close < open[1] and open > close[1]
+
+breakFibo_1 = low <= fibo_1 and high >= fibo_1
+breakFibo_2 = low <= fibo_2 and high >= fibo_2
+breakFibo_3 = low <= fibo_3 and high >= fibo_3
+breakFibo_4 = low <= fibo_4 and high >= fibo_4
+breakFibo_5 = low <= fibo_5 and high >= fibo_5
+
+plot(preHigh, "Prev High", color.rgb(218, 48, 48), 2)
+plot(preLow, "Prev Low", color.rgb(99, 0, 139), 2)
+
+plot(fibo_1, "Fib 0.234", color.new(#1d00c4, 0))
+plot(fibo_2, "Fib 0.38", color.new(#35a1ff, 0))
+plot(fibo_3, "Fib 0.50", color.new(#09d424, 0))
+plot(fibo_4, "Fib 0.618", color.new(#fff200, 0))
+plot(fibo_5, "Fib 0.78", color.new(#ff8c00, 0))
+
+validBreak = breakFibo_1 or breakFibo_2 or breakFibo_3 or breakFibo_4 or breakFibo_5
+
+longSignal = validBreak and (bullPin or bullEngulf)
+shortSignal = validBreak and (bearPin or bearEngulf)
+
+float longSL = na
+float longTP = na
+if close > fibo_5
+    longSL := fibo_4
+    longTP := preHigh
+else if close > fibo_4
+    longSL := fibo_3
+    longTP := fibo_5
+else if close > fibo_3
+    longSL := fibo_2
+    longTP := fibo_4
+else if close > fibo_2
+    longSL := fibo_1
+    longTP := fibo_3
+else if close > fibo_1
+    longSL := preLow
+    longTP := fibo_2
+
+float shortSL = na
+float shortTP = na
+if close < fibo_1
+    shortSL := fibo_2
+    shortTP := preLow
+else if close < fibo_2
+    shortSL := fibo_3
+    shortTP := fibo_1
+else if close < fibo_3
+    shortSL := fibo_4
+    shortTP := fibo_2
+else if close < fibo_4
+    shortSL := fibo_5
+    shortTP := fibo_3
+else if close < fibo_5
+    shortSL := preHigh
+    shortTP := fibo_4
+
+if strategy.position_size == 0 and longSignal and not na(longSL) and not na(longTP)
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long Exit", "Long", stop = longSL, limit = longTP)
+
+if strategy.position_size == 0 and shortSignal and not na(shortSL) and not na(shortTP)
+    strategy.entry("short", strategy.short)
+    strategy.exit("Short Exit", "short", stop = shortSL, limit = shortTP)
