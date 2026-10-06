@@ -36,6 +36,12 @@ An indicator tool that finds the 3 major rises and 3 major declines of a chart o
 
 [View Exercise](./05-major-swings-detector/)
 
+### 06 — Order Block Reaction Strategy
+
+A strategy that enters on Pin Bar reactions to Order Blocks formed at the end of a trend, with FVG confirmation and configurable Risk/Reward.
+
+[View Exercise](./06-order-block-reaction-strategy/)
+
 ---
 
 More exercises will be added as I continue learning Pine Script.

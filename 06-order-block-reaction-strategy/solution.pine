@@ -1,0 +1,107 @@
+//@version=6
+strategy("Höhlenmensch Strategie", overlay = true, max_labels_count = 500, process_orders_on_close = true)
+
+rr = input.float(2, "risk-reward", options = [1, 2, 3])
+
+bdy = math.abs(close - open)
+upperShadow = high - math.max(open, close)
+lowerShadow = math.min(open, close) - low
+
+var string stn = ""
+var int dir = 0
+
+var float trendLow = na
+var float trendHigh = na
+
+var float trackHigh = na
+var float trackLow = na
+
+var float obTop = na
+var float obBot = na
+
+if stn == ""
+    if close[2] > high[3] and low[2] > low[3] and close[1] > high[2] and low[1] > low[2] and close > high[1] and low > low[1]
+        stn := "found_uptrend"
+        dir := -1
+        trendLow := low[2]
+        trackHigh := high
+
+if stn == ""
+    if close[2] < low[3] and high[2] < high[3] and close[1] < low[2] and high[1] < high[2] and close < low[1] and high < high[1]
+        stn := "found_downtrend"
+        dir := 1
+        trendHigh := high[2]
+        trackLow := low
+
+if stn == "found_uptrend" and low < trendLow
+    stn := ""
+    dir := 0
+    trendLow := na
+    trackHigh := na
+
+if stn == "found_downtrend" and high > trendHigh
+    stn := ""
+    dir := 0
+    trendHigh := na
+    trackLow := na
+
+if stn == "found_uptrend" and high > trackHigh
+    trackHigh := high
+if stn == "found_downtrend" and low < trackLow
+    trackLow := low
+
+if stn == "found_uptrend"
+    bob = high[2] >= trackHigh and close[1] < open[1] and high < low[2] and high[1] <= high[2] and high <= high[2]
+    if bob
+        obTop := high[2]
+        obBot := low[2]
+        stn := "found_order_block"
+
+if stn == "found_downtrend"
+    lob = low[2] <= trackLow and close[1] > open[1] and low > high[2] and low[1] >= low[2] and low >= low[2]
+    if lob
+        obTop := high[2]
+        obBot := low[2]
+        stn := "found_order_block"
+
+if stn == "found_order_block" and dir == -1 and high > obTop
+    stn := ""
+    dir := 0
+    trendLow := na
+    trackHigh := na
+    obTop := na
+    obBot := na
+
+if stn == "found_order_block" and dir == 1 and low < obBot
+    stn := ""
+    dir := 0
+    trendHigh := na
+    trackLow := na
+    obTop := na
+    obBot := na
+
+if stn == "found_order_block" and stn[1] == "found_order_block"
+    if dir == -1
+        bpn = bdy > 0 and upperShadow >= bdy * 2 and lowerShadow <= bdy and high >= obBot and high <= obTop and close < obBot
+        if bpn and obTop > close
+            strategy.entry("short", strategy.short)
+            strategy.exit("exit short", from_entry = "short", stop = obTop, limit = close - (obTop - close) * rr)
+            stn := "in_trade"
+    if dir == 1
+        lpn = bdy > 0 and lowerShadow >= bdy * 2 and upperShadow <= bdy and low <= obTop and low >= obBot and close > obTop
+        if lpn and close > obBot
+            strategy.entry("long", strategy.long)
+            strategy.exit("exit long", from_entry = "long", stop = obBot, limit = close + (close - obBot) * rr)
+            stn := "in_trade"
+
+if stn == "in_trade" and stn[1] == "in_trade" and strategy.position_size == 0
+    if dir == -1
+        trendLow := na
+        trackHigh := na
+    if dir == 1
+        trendHigh := na
+        trackLow := na
+    stn := ""
+    dir := 0
+    obTop := na
+    obBot := na
