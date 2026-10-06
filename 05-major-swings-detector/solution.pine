@@ -1,0 +1,148 @@
+//@version = 6
+
+indicator(title = "☝🏻 and 👇🏻 detector", overlay = true, max_labels_count = 500)
+
+N = input.int(3, "Years back", minval = 2, maxval = 10, inline = "1")
+
+T = input.float(10, "movement in opp direction", minval = 5, maxval = 50, inline = "1")
+
+cutOff = last_bar_time - (1000 * 60 * 60 * 24 * 365.25) * N
+
+bgcolor(cutOff <= time ? color.new(#5b01aa, 85) : na)
+
+type Leg
+    int   dir
+    int   startBar
+    int   startTime
+    float startPrice
+    int   endBar
+    int   endTime
+    float endPrice
+
+var array<Leg> legs = array.new<Leg>()
+
+var int   dir         = 1
+var float extreme     = close
+var int   extremeBar  = 0
+var int   extremeTime = time
+
+var int   legStartBar   = 0
+var int   legStartTime  = time
+var float legStartPrice = close
+
+// we track the price when it goes lower than what we expected we change the direction
+if dir == 1
+    if close > extreme
+        extreme     := close
+        extremeBar  := bar_index
+        extremeTime := time
+    else if close <= extreme * (1 - T / 100)
+        label.new(extremeBar, extreme, "we had ↑", style = label.style_label_down, color = #063e08, textcolor = color.white, size = size.small)
+        legs.push(Leg.new(dir = 1, startBar = legStartBar, startTime = legStartTime, startPrice = legStartPrice, endBar = extremeBar, endTime = extremeTime, endPrice = extreme))
+        legStartBar   := extremeBar
+        legStartTime  := extremeTime
+        legStartPrice := extreme
+        dir         := -1
+        extreme     := close
+        extremeBar  := bar_index
+        extremeTime := time
+else
+    if close < extreme
+        extreme     := close
+        extremeBar  := bar_index
+        extremeTime := time
+    else if close >= extreme * (1 + T / 100)
+        label.new(extremeBar, extreme, "we had ↓", style = label.style_label_up, color = #861212, textcolor = color.white, size = size.small)
+        legs.push(Leg.new(dir = -1, startBar = legStartBar, startTime = legStartTime, startPrice = legStartPrice, endBar = extremeBar, endTime = extremeTime, endPrice = extreme))
+        legStartBar   := extremeBar
+        legStartTime  := extremeTime
+        legStartPrice := extreme
+        dir         := 1
+        extreme     := close
+        extremeBar  := bar_index
+        extremeTime := time
+
+// I collected the candidates wich contains the current leg too!
+if barstate.islast
+    array<Leg> cands = array.new<Leg>()
+    for [i, leg] in legs
+        array.push(cands, leg)
+    array.push(cands, Leg.new(dir = dir, startBar = legStartBar,
+     startTime = legStartTime, startPrice = legStartPrice, endBar = extremeBar, endTime = extremeTime, endPrice = extreme))
+// here I filtered legs which are in our timezone and then saved them.
+    array<Leg>   quals = array.new<Leg>()
+    array<float> sizes = array.new<float>()
+    for [i, leg] in cands
+        if leg.startTime >= cutOff
+            array.push(quals, leg)
+            array.push(sizes, math.abs(leg.endPrice - leg.startPrice) / leg.startPrice * 100)
+// I pick 3 rises and 3 declines (first rise ---> first decline ----> second rise ----> second decline and ...)
+    array<int> pickedUp = array.new<int>()
+    array<int> pickedDn = array.new<int>()
+    for pick = 1 to 3
+        bestIdx = -1
+        bestVal = -1.0e10
+        for [i, leg] in quals
+            if leg.dir == 1 and not array.includes(pickedUp, i)
+                contained = false
+                for j in pickedDn
+                    d = array.get(quals, j)
+                    if d.startTime >= leg.startTime and d.endTime <= leg.endTime
+                        contained := true
+                if not contained and array.get(sizes, i) > bestVal
+                    bestVal := array.get(sizes, i)
+                    bestIdx := i
+        if bestIdx != -1
+            array.push(pickedUp, bestIdx)
+    for pick = 1 to 3
+        bestIdx = -1
+        bestVal = -1.0e10
+        for [i, leg] in quals
+            if leg.dir == -1 and not array.includes(pickedDn, i)
+                contained = false
+                for j in pickedUp
+                    g = array.get(quals, j)
+                    if g.startTime >= leg.startTime and g.endTime <= leg.endTime
+                        contained := true
+                if not contained and array.get(sizes, i) > bestVal
+                    bestVal := array.get(sizes, i)
+                    bestIdx := i
+        if bestIdx != -1
+            array.push(pickedDn, bestIdx)
+
+
+//-------------------------presentation
+    var table rep = table.new(position.top_right, 5, 8, bgcolor = color.new(#000000, 20), frame_color = color.new(#787b86, 60), frame_width = 1, border_width = 1, border_color = color.new(#787b86, 80))
+
+    table.cell(rep, 0, 0, "#", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 1, 0, "% change", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 2, 0, "start -> end", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 3, 0, "price", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 4, 0, "days", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 0, 4, "#", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 1, 4, "% change", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 2, 4, "start -> end", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 3, 4, "price", text_color = #787b86, text_size = size.tiny)
+    table.cell(rep, 4, 4, "days", text_color = #787b86, text_size = size.tiny)
+
+    for [rank0, i] in pickedUp
+        w = array.get(quals, i)
+        float days = (w.endTime - w.startTime) / 86400000.0
+        float absD = math.abs(w.endPrice - w.startPrice)
+        int row = 1 + rank0
+        table.cell(rep, 0, row, "#" + str.tostring(rank0 + 1), text_color = #089981, text_size = size.tiny)
+        table.cell(rep, 1, row, "+" + str.tostring(array.get(sizes, i), "#.#") + "% (" + str.tostring(absD, format.mintick) + ")", text_color = #089981, text_size = size.tiny)
+        table.cell(rep, 2, row, str.format_time(w.startTime, "yyyy-MM-dd", syminfo.timezone) + " -> " + str.format_time(w.endTime, "yyyy-MM-dd", syminfo.timezone), text_color = color.white, text_size = size.tiny)
+        table.cell(rep, 3, row, str.tostring(w.startPrice, format.mintick) + " -> " + str.tostring(w.endPrice, format.mintick), text_color = color.white, text_size = size.tiny)
+        table.cell(rep, 4, row, str.tostring(days, "#.#"), text_color = color.white, text_size = size.tiny)
+
+    for [rank0, i] in pickedDn
+        w = array.get(quals, i)
+        float days = (w.endTime - w.startTime) / 86400000.0
+        float absD = math.abs(w.endPrice - w.startPrice)
+        int row = 5 + rank0
+        table.cell(rep, 0, row, "#" + str.tostring(rank0 + 1), text_color = #f23645, text_size = size.tiny)
+        table.cell(rep, 1, row, "-" + str.tostring(array.get(sizes, i), "#.#") + "% (" + str.tostring(absD, format.mintick) + ")", text_color = #f23645, text_size = size.tiny)
+        table.cell(rep, 2, row, str.format_time(w.startTime, "yyyy-MM-dd", syminfo.timezone) + " -> " + str.format_time(w.endTime, "yyyy-MM-dd", syminfo.timezone), text_color = color.white, text_size = size.tiny)
+        table.cell(rep, 3, row, str.tostring(w.startPrice, format.mintick) + " -> " + str.tostring(w.endPrice, format.mintick), text_color = color.white, text_size = size.tiny)
+        table.cell(rep, 4, row, str.tostring(days, "#.#"), text_color = color.white, text_size = size.tiny)

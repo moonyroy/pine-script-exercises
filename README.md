@@ -30,6 +30,12 @@ A 1-minute timeframe strategy trading Pin Bar and Engulfing reactions at Fibonac
 
 [View Exercise](./04-fibonacci-sr-strategy/)
 
+### 05 — Major Swings Detector
+
+An indicator tool that finds the 3 major rises and 3 major declines of a chart over the last N years, with full details (duration, start/end, percent change) and a non-containment rule between rises and declines.
+
+[View Exercise](./05-major-swings-detector/)
+
 ---
 
 More exercises will be added as I continue learning Pine Script.
