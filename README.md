@@ -48,6 +48,12 @@ A strategy trading Pin Bar and Engulfing reactions at directional Fibonacci leve
 
 [View Exercise](./07-directional-fibonacci-strategy/)
 
+### 08 — Top 10 Daily Candles
+
+An indicator that finds the 10 biggest daily candles of any symbol and shows them ranked by size in a table with date and range.
+
+[View Exercise](./08-top-10-daily-candles/)
+
 ---
 
 More exercises will be added as I continue learning Pine Script.

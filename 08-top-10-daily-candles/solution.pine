@@ -1,0 +1,24 @@
+//@version = 6
+indicator("Top 10 Daily Candles", overlay = true, max_bars_back = 5000)
+
+cdl_sz = (high - low) / open
+var sz = array.new_float()
+var tm = array.new_int()
+
+if bar_index < 10
+    sz.push(cdl_sz)
+    tm.push(time)
+else if cdl_sz > sz.min()
+    tm.set(sz.indexof(sz.min()), time)
+    sz.set(sz.indexof(sz.min()), cdl_sz)
+
+var table t = table.new(position.top_right, 3, 11, border_width = 1)
+if barstate.islast
+    t.cell(0, 0, "Rank", bgcolor = color.new(color.blue, 20), text_color = color.white)
+    t.cell(1, 0, "Date", bgcolor = color.new(color.blue, 20), text_color = color.white)
+    t.cell(2, 0, "Range", bgcolor = color.new(color.blue, 20), text_color = color.white)
+    for rank = 1 to 10
+        clr = color.from_gradient(10 - rank, 0, 9, #ffba3b, color.green)
+        t.cell(0, rank, str.tostring(rank), text_color = color.white, bgcolor = clr)
+        t.cell(1, rank, str.format_time(tm.get(sz.indexof(sz.max(rank - 1))), "yyyy-MM-dd \nHH:mm", syminfo.timezone), text_color = color.white, bgcolor = clr)
+        t.cell(2, rank, str.tostring(sz.max(rank - 1), "0.000%"), text_color = color.white, bgcolor = clr)
